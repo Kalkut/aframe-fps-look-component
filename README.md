@@ -1,62 +1,33 @@
-## aframe-component-boilerplate
+## aframe-fps-look-component
 
-Boilerplate for creating and sharing [A-Frame](https://aframe.io) VR
-[components](https://aframe.io/docs/core/component.html).
+A component for [A-Frame](https://aframe.io) VR that facilitates controlling entity rotation directly with captured mouse.
 
-Note this refers to A-Frame components of the [entity-component
-system](https://en.wikipedia.org/wiki/Entity_component_system), and not Web
-Components.
+## Usage
 
-The boilerplate comes with a stub component, test suite, examples
-infrastructure with [Github pages](https://pages.github.com/), and stubbed
-README, which begins below.
-
-A path to using the boilerplate:
-
-- Rename all instances of `example` and `Example` to your component name.
-- Write your component.
-- Write your unit tests.
-- Build examples (`npm run dev` to watch for changes to build example bundles).
-- Clean up this README.
-- Check `browser.js` and see if components are required and registered correctly. `browser.js`
-- is used to generate `dist` files.
-- Publish to NPM (`npm publish`). This will also generate a browser distribution to commit.
-- Publish examples to Github pages (`npm run ghpages`).
-- Share your component on [Slack](http://aframevr.slack.com/) and [awesome-aframe](https://github.com/aframevr/awesome-aframe)!
-
-Example usage of the boilerplate:
-
-- [aframe-layout-component](https://github.com/ngokevin/aframe-layout-component)
-- [aframe-text-component](https://github.com/ngokevin/aframe-text-component)
-- [aframe-extrude-and-lathe](https://github.com/JosePedroDias/aframe-extrude-and-lathe)
-
-## aframe-example-component
-
-An example component for [A-Frame](https://aframe.io) VR.
-
-### Usage
-
-Install (or directly include the [browser files](dist)).
+Install.
 
 ```bash
-npm install aframe-example-component
+npm install aframe-fps-look-component
 ```
 
 Register.
 
 ```js
-var exampleComponent = require('aframe-example-component').component;
-require('aframe-core').registerComponent('example', exampleComponent);
+AFrame = require('aframe-core');
+AFrame.registerComponent('fps-look-controls', require('aframe-fps-look-component').component);
 ```
 
 Use.
 
 ```html
 <a-scene>
-  <a-entity example="exampleProp: exampleVal"></a-entity>
+  <a-entity camera fps-look-controls></a-entity>
 </a-scene>
 ```
 
+## Properties
+
 | Property | Description | Default Value |
 | -------- | ----------- | ------------- |
-|          |             |               |
+| enabled |             | true              |
+| sensitivity |             | 1              |

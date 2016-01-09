@@ -1,3 +1,3 @@
 var AFRAME = require('aframe-core');
-var exampleComponent = require('../index.js').component;
-AFRAME.registerComponent('example', exampleComponent);
+var fpsLookComponent = require('../index.js').component;
+AFRAME.registerComponent('fps-look-controls', fpsLookComponent);
