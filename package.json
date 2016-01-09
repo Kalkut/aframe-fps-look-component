@@ -1,6 +1,6 @@
 {
   "name": "aframe-fps-look-component",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "FPS-like mouse look component for A-Frame VR",
   "main": "index.js",
   "scripts": {
