@@ -85,40 +85,59 @@
 
 
 	module.exports.component = {
-	  dependencies: ['rotation'],
+	  dependencies: ['position','rotation'],
 
 	  schema: {
 	    enabled: { default: true },
 	    sensitivity: { default: 1 },
 	  },
 
+	  /**
+	   * Called once when component is attached. Generally for initial setup.
+	   */
 	  init: function () {
-	    console.log('init called');
+	    // The canvas where the scene is painted
+	    this.sceneEl = document.querySelector('a-scene');
+	    this.canvasEl = this.sceneEl.canvas;
+
+	    this.setupMouseControls();
+	    this.setupHMDControls();
+	    this.attachEventListeners();
+	    this.bindFunctions();
+	    this.sceneEl.addBehavior(this);
+	    this.previousPosition = new THREE.Vector3();
+	    this.deltaPosition = new THREE.Vector3();
+	  },
+
+	  setupMouseControls: function () {
+
 	    this.pitchObject = new THREE.Object3D();
 	    this.yawObject = new THREE.Object3D();
 	    this.yawObject.position.y = 10;
 	    this.yawObject.add(this.pitchObject);
-	    this.isSupported = 'pointerLockElement' in document ||
+	    this.lockIsSupported = 'pointerLockElement' in document ||
 	       'mozPointerLockElement' in document ||
 	       'webkitPointerLockElement' in document;
-	    this.bindFunctions();
-	    if (this.isSupported) {
-	      this.initListeners();
-	    }
 	  },
 
-	  initListeners: function () {
-	    var scene = this.el.sceneEl;
-	    var canvas = scene.canvas;
-	    document.addEventListener('pointerlockchange', this.onLockChange.bind(this), false);
-	    document.addEventListener('mozpointerlockchange', this.onLockChange.bind(this), false);
-	    document.addEventListener('webkitpointerlockchange', this.onLockChange.bind(this), false);
+	  setupHMDControls: function () {
+	    this.dolly = new THREE.Object3D();
+	    this.euler = new THREE.Euler();
+	    this.controls = new THREE.VRControls(this.dolly);
+	    this.zeroQuaternion = new THREE.Quaternion();
+	  },
 
-	    document.addEventListener('pointerlockerror', this.onLockError, false);
-	    document.addEventListener('mozpointerlockerror', this.onLockError, false);
-	    document.addEventListener('webkitpointerlockerror', this.onLockError, false);
-	    canvas.onclick = this.captureMouse.bind(this);
-	    scene.addBehavior(this);
+	  attachEventListeners: function () {
+	    if (this.lockIsSupported) {
+	      document.addEventListener('pointerlockchange', this.onLockChange.bind(this), false);
+	      document.addEventListener('mozpointerlockchange', this.onLockChange.bind(this), false);
+	      document.addEventListener('webkitpointerlockchange', this.onLockChange.bind(this), false);
+
+	      document.addEventListener('pointerlockerror', this.onLockError, false);
+	      document.addEventListener('mozpointerlockerror', this.onLockError, false);
+	      document.addEventListener('webkitpointerlockerror', this.onLockError, false);
+	      this.canvasEl.onclick = this.captureMouse.bind(this);
+	    }
 	  },
 
 	  bindFunctions: function () {
@@ -126,18 +145,16 @@
 	  },
 
 	  remove: function () {
-	    var scene = this.el.sceneEl;
 	    this.releaseMouse();
-	    scene.removeBehavior(this);
+	    this.sceneEl.removeBehavior(this);
 	  },
 
 	  captureMouse: function () {
-	    var scene = this.el.sceneEl;
-	    scene.requestPointerLock = scene.canvas.requestPointerLock ||
-	      scene.canvas.mozRequestPointerLock ||
-	      scene.canvas.webkitRequestPointerLock;
+	    this.sceneEl.requestPointerLock = this.sceneEl.canvas.requestPointerLock ||
+	      this.sceneEl.canvas.mozRequestPointerLock ||
+	      this.sceneEl.canvas.webkitRequestPointerLock;
 	    // Ask the browser to lock the pointer
-	    scene.requestPointerLock();
+	    this.sceneEl.requestPointerLock();
 	  },
 
 	  releaseMouse: function () {
@@ -169,7 +186,9 @@
 
 	  update: function () {
 	    if (!this.data.enabled) { return; }
+	    this.controls.update();
 	    this.updateOrientation();
+	    this.updatePosition();
 	  },
 
 	  updateOrientation: (function () {
@@ -178,12 +197,79 @@
 	    return function () {
 	      var pitchObject = this.pitchObject;
 	      var yawObject = this.yawObject;
+	      var hmdQuaternion = this.calculateHMDQuaternion();
+	      hmdEuler.setFromQuaternion(hmdQuaternion);
 	      this.el.setAttribute('rotation', {
-	        x: THREE.Math.radToDeg(pitchObject.rotation.x),
-	        y: THREE.Math.radToDeg(yawObject.rotation.y)
+	        x: THREE.Math.radToDeg(hmdEuler.x) + THREE.Math.radToDeg(pitchObject.rotation.x),
+	        y: THREE.Math.radToDeg(hmdEuler.y) + THREE.Math.radToDeg(yawObject.rotation.y),
+	        z: THREE.Math.radToDeg(hmdEuler.z)
 	      });
 	    };
 	  })(),
+
+	  calculateHMDQuaternion: (function () {
+	    var hmdQuaternion = new THREE.Quaternion();
+	    return function () {
+	      var dolly = this.dolly;
+	      if (!this.zeroed && !dolly.quaternion.equals(this.zeroQuaternion)) {
+	        this.zeroOrientation();
+	        this.zeroed = true;
+	      }
+	      hmdQuaternion.copy(this.zeroQuaternion).multiply(dolly.quaternion);
+	      return hmdQuaternion;
+	    };
+	  })(),
+
+	  updatePosition: (function () {
+	    var position = new THREE.Vector3();
+	    var quaternion = new THREE.Quaternion();
+	    var scale = new THREE.Vector3();
+	    return function () {
+	      var el = this.el;
+	      var deltaPosition = this.calculateDeltaPosition();
+	      var currentPosition = el.getComputedAttribute('position');
+	      this.el.object3D.matrixWorld.decompose(position, quaternion, scale);
+	      deltaPosition.applyQuaternion(quaternion);
+	      el.setAttribute('position', {
+	        x: currentPosition.x + deltaPosition.x,
+	        y: currentPosition.y + deltaPosition.y,
+	        z: currentPosition.z + deltaPosition.z
+	      });
+	    };
+	  })(),
+
+	  calculateDeltaPosition: function () {
+	    var dolly = this.dolly;
+	    var deltaPosition = this.deltaPosition;
+	    var previousPosition = this.previousPosition;
+	    deltaPosition.copy(dolly.position);
+	    deltaPosition.sub(previousPosition);
+	    previousPosition.copy(dolly.position);
+	    return deltaPosition;
+	  },
+
+	  updateHMDQuaternion: (function () {
+	    var hmdQuaternion = new THREE.Quaternion();
+	    return function () {
+	      var dolly = this.dolly;
+	      this.controls.update();
+	      if (!this.zeroed && !dolly.quaternion.equals(this.zeroQuaternion)) {
+	        this.zeroOrientation();
+	        this.zeroed = true;
+	      }
+	      hmdQuaternion.copy(this.zeroQuaternion).multiply(dolly.quaternion);
+	      return hmdQuaternion;
+	    };
+	  })(),
+
+	  zeroOrientation: function () {
+	    var euler = new THREE.Euler();
+	    euler.setFromQuaternion(this.dolly.quaternion.clone().inverse());
+	    // Cancel out roll and pitch. We want to only reset yaw
+	    euler.z = 0;
+	    euler.x = 0;
+	    this.zeroQuaternion.setFromEuler(euler);
+	  },
 
 	  onMouseMove: function (e) {
 	    if (!this.data.enabled) {return;}
