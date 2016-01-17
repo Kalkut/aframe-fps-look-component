@@ -1,6 +1,6 @@
 ## aframe-fps-look-component
 
-A component for [A-Frame](https://aframe.io) VR that facilitates controlling entity rotation directly with captured mouse.
+A component for [A-Frame](https://aframe.io) VR that facilitates controlling entity rotation directly with captured mouse. Includes Core HMD Controls, so can be used as a drop in replacement to look-controls component.
 
 ## Usage
 
